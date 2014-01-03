@@ -10,14 +10,14 @@
 #include <regex.h>
 #include <arpa/inet.h>
 
-int main(int argc, char** argv)
-{
-	int sock = socket(AF_INET, SOCK_STREAM, 0);
-	if (sock < 0) {
+int main(int argc, char** argv) 
+{	
+	int sock = socket(AF_INET, SOCK_STREAM, 0);		// create a socket
+	if(sock < 0) {
 		perror("Creating socket failed: ");
 		exit(1);
 	}
-
+	
 	/* Need to take an input URL and parse it */
 	regex_t urlPreg;
 	regex_t errorResponse;
@@ -34,8 +34,8 @@ int main(int argc, char** argv)
 	{
 		puts("Please enter a proper URL");			
 		return 1;
-	}
-
+	}			
+	
 	char hostName[1024];
 	char requestFileName[1024];
 	char saveFileName[1024];
@@ -62,7 +62,39 @@ int main(int argc, char** argv)
 		exit(1);
 	}
 	printf("Connected to %s\n", hostName);
-
+	
+	char getRequest[2048];						//initialize the getRequest buffer
+	memset(getRequest,0,sizeof(getRequest));	//zero out the buffer
+	if(strcmp(requestFileName,"")==0 || strcmp(requestFileName,"/")==0)
+	{
+		sprintf(getRequest,"GET / HTTP/1.0\r\nHost: %s\r\n\r\n",hostName);	//construct the HTTP GET request
+		sprintf(saveFileName,"index.html",0);
+	}
+	else
+	{
+		regmatch_t matchedFileName[3];
+		regex_t fileNameRegex;
+		sprintf(getRequest,"GET %s HTTP/1.0\r\nHost: %s\r\n\r\n",requestFileName,hostName);	//construct the HTTP GET request
+		if(regcomp(&fileNameRegex,"(/[^/]+)*(/?)",0 | REG_ICASE | REG_EXTENDED)!=0)
+		{	perror("fileNameRegex failed to compile:"); return 1;	}
+		if(regexec(&fileNameRegex,requestFileName,(size_t)3,matchedFileName,0)==REG_NOMATCH)
+		{	perror("Filename regex did not match:"); return 1;	}		
+		/*int i=0;		
+		puts("Here");
+		for(i=matchedFileName[1].rm_so+1;i<matchedFileName[1].rm_eo;i++)
+			putc(requestFileName[i],stdout);
+			printf("\n");
+		for(i=matchedFileName[2].rm_so;i<matchedFileName[2].rm_eo;i++)
+			putc(requestFileName[i],stdout);		*/
+		if(requestFileName[matchedFileName[2].rm_so]=='/')
+			sprintf(saveFileName,"index.html",0);
+		else if(strcmp(&requestFileName[matchedFileName[2].rm_so],"")==0)		
+			strncpy(saveFileName,&requestFileName[matchedFileName[1].rm_so+1],matchedFileName[1].rm_eo-matchedFileName[1].rm_so);
+	}
+	printf("The save filename is %s\n",saveFileName);
+	printf("The GET request is \n%s",getRequest);
+	
+	
 	/*NOW SEND THE REQUEST*/
 	if(send(sock,(const char *)getRequest,strlen(getRequest),0)!=strlen(getRequest))
 	{	perror("ERROR: Send Failed");	return 1;	}
@@ -116,7 +148,6 @@ int main(int argc, char** argv)
 
 	shutdown(sock,SHUT_RDWR);
 	fclose(filePtr);
-
-
+	
 	return 0;
 }

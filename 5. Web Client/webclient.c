@@ -62,6 +62,61 @@ int main(int argc, char** argv)
 		exit(1);
 	}
 	printf("Connected to %s\n", hostName);
+
+	/*NOW SEND THE REQUEST*/
+	if(send(sock,(const char *)getRequest,strlen(getRequest),0)!=strlen(getRequest))
+	{	perror("ERROR: Send Failed");	return 1;	}
 	
+	/*PREPARE TO RECEIVE */		
+	char buf[1024*1024];					//declare a buffer of 1MB
+	memset(&buf,0,sizeof(buf));			//zero out the buffer		
+	FILE *filePtr=0;
+	int recvdBytes=recv(sock, buf, 1024*1024, 0);
+	int writeFlag=0;		//flag to check whether writing to file has started
+	while(recvdBytes>0)		//receive stuff until the server disconnects, wherein we receive a 0
+	{ 
+		int i=0;
+		printf("Totaly bytes received is %d\n",recvdBytes);		
+		
+		//if we've already parsed and started to write to files, then we contnue to write
+		//whatever we get into the file
+		if(writeFlag==1)				
+		{
+			i=0;
+			while(i<recvdBytes)
+			{
+				putc(*(buf+i),filePtr);
+				i++;
+			}				
+		}
+		//parse the response		
+		if(regexec(&errorResponse,buf,0,0,0)!=REG_NOMATCH && writeFlag==0)		
+		{
+			puts("Received some error!");
+			return 1;				
+		}							
+		if(regexec(&okResponse,buf,0,0,0)!=REG_NOMATCH && writeFlag==0)
+		{						
+			char *subStr=0;			
+			subStr=strstr(buf,"\r\n\r\n");
+			puts("The string starting after the substring is");			
+			subStr=subStr+4;			
+			filePtr=fopen(saveFileName,"w+");
+			i=(subStr-buf);
+			while(i<recvdBytes)
+			{
+				putc(*(buf+i),filePtr);
+				i++;
+			}
+			writeFlag=1;
+		}		
+		memset(&buf,0,sizeof(buf)); 	
+		recvdBytes=recv(sock, buf, 1024*1024, 0);	
+	}
+
+	shutdown(sock,SHUT_RDWR);
+	fclose(filePtr);
+
+
 	return 0;
 }

@@ -1,0 +1,1 @@
+cmd_/home/kranthi/Documents/cn/dd/arena/second/startstop.o := ld -m elf_i386   -r -o /home/kranthi/Documents/cn/dd/arena/second/startstop.o /home/kranthi/Documents/cn/dd/arena/second/start.o /home/kranthi/Documents/cn/dd/arena/second/stop.o 
